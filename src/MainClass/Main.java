@@ -19,7 +19,7 @@ public class Main {
      */
     public static void main(String[] args) {
         // Test on
-        GameConfig gf = new GameConfig("/home/gilberto/Desktop/test.txt");
+        GameConfig gf = new GameConfig(args);
         
     }
     

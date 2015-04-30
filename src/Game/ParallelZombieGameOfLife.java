@@ -12,12 +12,29 @@ package Game;
  */
 public class ParallelZombieGameOfLife {
     
+    private final int iterations;
+    private final int grid;
+    private final int[][] m;
     
     /**
      * Constructor of the class
      * @param gf
      */
     public ParallelZombieGameOfLife(GameConfig gf){
+        m = gf.getMatrix();
+        iterations = gf.getIterations();
+        grid = gf.getGridSize();
+    }
+    
+    /**
+     * Apply rules to m[i][j] based on neighbors
+     * @param i
+     * @param j
+     * @param neighbors 
+     */
+    private synchronized void applyRules(int i, int j, int[] neighbors){
         
     }
+    
+    
 }
