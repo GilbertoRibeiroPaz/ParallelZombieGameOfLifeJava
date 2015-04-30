@@ -7,6 +7,8 @@
 package MainClass;
 
 import Game.GameConfig;
+import Game.GridGenerator;
+import Game.ParallelZombieGameOfLife;
 import java.lang.*;
 /**
  *
@@ -18,9 +20,15 @@ public class Main {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        // Test on
-        GameConfig gf = new GameConfig(args);
         
+        
+        
+        if(false){
+            GameConfig gf = new GameConfig(args);
+
+            ParallelZombieGameOfLife pzgl = new ParallelZombieGameOfLife(gf);
+            pzgl.StartGame();
+        }
     }
     
 }
