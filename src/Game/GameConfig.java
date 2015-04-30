@@ -8,7 +8,6 @@ package Game;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOException;
 
 /**
  *
@@ -40,6 +39,25 @@ public class GameConfig {
      */
         private int[][] matrix;
 
+    private boolean Debug;
+
+    /**
+     * Get the value of Debug
+     *
+     * @return the value of Debug
+     */
+    public boolean isDebug() {
+        return Debug;
+    }
+
+    /**
+     * Set the value of Debug
+     *
+     * @param Debug new value of Debug
+     */
+    public void setDebug(boolean Debug) {
+        this.Debug = Debug;
+    }
 
     /**
      *  Constructor of GameConfig
@@ -61,37 +79,42 @@ public class GameConfig {
             outFile = args[3];
             matrix = new int[gridSize][gridSize];
             
-            String outP = "Grid Size: " + gridSize + 
+            // only prints a attributes if on debug mode
+            if(Debug){
+                String outP = "Grid Size: " + gridSize + 
                         "\nNo Iterations: " + iterations +
                         "\nConfig File: " + configFile +
                         "\nOutput File: " + outFile +
                         "\nMatrix size: " + gridSize + "x" + gridSize + "\n";
+            
+                System.out.println(outP);
+            }
 
-            System.out.println(outP);
         }catch(Exception ex){
             System.err.println("ERROR on parsing parâmeters:\n\t" + ex.getMessage());
             System.exit(1);
         }
         
-        
-        try{
-            // Try to get file
-            FileReader fr = new FileReader(configFile);            
-            BufferedReader br = new BufferedReader(fr);
-            try{
+        // Try to get file reader
+        try(FileReader fr = new FileReader(configFile)){
+            
+            // Try to get file content
+            try(BufferedReader br = new BufferedReader(fr)){
                 // Try reading the file
                 String line = br.readLine();
                 while(line != null){
                     
-                    // Parse each line
-                    
+                    // Parse each line                    
                     try{
                         int[] ijv = getThreeInts(line);
-                        System.out.printf("%d, %d, %d\n",ijv[0], ijv[1], ijv[2]);
+                        // Only prints numbers got on debug mode
+                        if(Debug)
+                            System.out.printf("%d, %d, %d\n",ijv[0], ijv[1], ijv[2]);
+                        
                         int i = ijv[0];
                         int j = ijv[1];
                         int v = ijv[2];
-                        matrix[i][j] = v;                        
+                        matrix[i][j] = v;                    
                     }
                     catch(Exception ex){
                         System.err.println("ERROR out of bounds:\n\t" + ex.getMessage() + "\n\t" + ex.getCause());
@@ -100,13 +123,22 @@ public class GameConfig {
                     
                     line = br.readLine();
                 }
+                
+                // Print matrix on debug mode
+                if(Debug){
+                    System.out.println("Matrix read:\n");
+                    for(int i = 0; i < gridSize; i++){
+
+                        for(int j = 0; j < gridSize; j++){
+                            System.out.print(matrix[i][j] + " ");
+                        }
+                        System.out.println();
+                    }                    
+                }
+                
             }catch(Exception ex){
-                br.close();
                 System.out.println("ERROR error on parsing config file:\n\t" + ex.getMessage() + "\n\t" + ex.getCause());
                 System.exit(1);
-            } finally{
-                br.close();
-                System.out.println("File " + configFile + " closed.");
             }
         } catch(Exception ex){
             System.err.println("ERROR error on opening file:\n\t" + ex.getMessage());
@@ -145,6 +177,8 @@ public class GameConfig {
     public int[][] getMatrix() {
         return matrix;
     }
+    
+    
 
     /**
      * Extract 3 ints from a string

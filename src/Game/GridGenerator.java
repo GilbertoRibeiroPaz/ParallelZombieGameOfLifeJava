@@ -25,6 +25,7 @@ public class GridGenerator {
             for(int j = 0; j < size; j++){                       
                 popul[i][j] = rd.nextInt(3);
             }
+            
         }
         
         return popul;
@@ -49,10 +50,12 @@ public class GridGenerator {
             }
             catch(Exception ex){
                 System.err.printf("ERROR getting buffered file: " + ex.getMessage());
+                System.exit(1);
             }
         }
         catch(Exception ex){
             System.out.println("ERROR getting file:\n\t" + ex.getMessage());
+            System.exit(1);
         }
     }
 }

@@ -16,7 +16,43 @@ public class ParallelZombieGameOfLife {
 
     private final int iterations;
     private final int grid;
-    private final int[][] m;
+    private int[][] m;
+    private int customProcessorsNumber;
+    private boolean useCustomProcessors;
+
+    private boolean Debug;
+
+    /**
+     * Get the value of Debug
+     *
+     * @return the value of Debug
+     */
+    public boolean isDebug() {
+        return Debug;
+    }
+
+    /**
+     * Set the value of Debug
+     *
+     * @param Debug new value of Debug
+     */
+    public void setDebug(boolean Debug) {
+        this.Debug = Debug;
+    }
+
+    /**
+     * Constructor of the class with a custom number of threads
+     *
+     * @param gf
+     * @param customProcessorsNumber
+     */
+    public ParallelZombieGameOfLife(GameConfig gf, int customProcessorsNumber) {
+        m = gf.getMatrix();
+        iterations = gf.getIterations();
+        grid = gf.getGridSize();
+        this.customProcessorsNumber = customProcessorsNumber;
+        useCustomProcessors = true;
+    }
 
     /**
      * Constructor of the class
@@ -36,7 +72,7 @@ public class ParallelZombieGameOfLife {
      * @param j
      * @param neighbors
      */
-    private synchronized void applyRules(int i, int j, int[] neighbors) {
+    private void applyRules(int i, int j, int[] neighbors) {
 
         // 1º - for living cells        
         if (m[i][j] == 1) {
@@ -123,7 +159,12 @@ public class ParallelZombieGameOfLife {
      */
     private void runIterationParallel(int initI, int finalI, int[][][] neighborhood) {
 
-        for (int i = initI; i < finalI; i++) {
+        // Prints thread name on debug mode
+        if (Debug) {
+            System.out.println("ThreadID = " + Thread.currentThread().getName());
+        }
+
+        for (int i = initI; i <= finalI; i++) {
             for (int j = 0; j < grid; j++) {
 
                 //general case
@@ -225,67 +266,140 @@ public class ParallelZombieGameOfLife {
         } //i
     }
 
-    
     /**
      * Start game running on multithreaded.
      */
     public void StartGame() {
-        int processors = Runtime.getRuntime().availableProcessors();
-        System.out.println("Number of Processors: " + processors);
-        
-        
-        int[][][] neighborhood = new int[grid][grid][8];
-        for (int currentIteration = 0; currentIteration < iterations; currentIteration++) {
-            
+        // If got a custom number of simulating processors use it
+        int processors = useCustomProcessors ? customProcessorsNumber : Runtime.getRuntime().availableProcessors();
 
-            // Selection algo
+        //Prints number of processors on debug mode
+        if (Debug) {
+            System.out.println("Number of Processors: " + processors);
+        }
+
+        //Prints first matrix
+        System.out.println("Original matrix:");
+        printMatrix();
+        System.out.println();
+
+        for (int currentIteration = 0; currentIteration < iterations; currentIteration++) {
+
+            // Create neighbor hood
+            int[][][] neighborhood = new int[grid][grid][8];
+
+            // Split threads on lines of the matrix based on machine processors
             int value = grid / processors;
+
+            // thread vector
             Thread[] threads = new Thread[processors];
+
+            // Create a reference to this object to use inside the Runneble object
             ParallelZombieGameOfLife pzgl = this;
-            
+
             // Create threads and pupulate the neiborhood with they
             for (int i = 0; i < processors; i++) {
                 // Calculate next displacement on matrix
                 int initI = value * i;
                 int finalI = value * (i + 1);
-                
-                threads[i] = new Thread(new Runnable() {
-                    
-                    public void run() {
-                        pzgl.runIterationParallel(initI, finalI, neighborhood);
-                    }
-                });
-            
-                threads[i].start();
-            }
-            
-            // join for selection
-            for(Thread t: threads){
-                try{
-                    t.join();
+
+                // Try to create threads
+                try {
+                    threads[i] = new Thread(new Runnable() {
+
+                        public void run() {
+                            pzgl.runIterationParallel(initI, finalI, neighborhood);
+                        }
+                    });
+
+                    threads[i].setName(initI + " to " + finalI);
+                    threads[i].start();
+                } catch (Exception ex) {
+                    System.err.println("ERROR on creating threads:\n\t" + ex.getMessage());
+                    System.exit(1);
                 }
-                catch(Exception ex){
-                    System.out.println("ERROR on thread join: " + ex.getMessage());
-                }
-                
+
             }
 
-            // Clear threads vetor
-            
-            // Apply rules for each i,j with created threads
-            // Mult apply rules
-            for (int i = 0; i < grid; i++) {
-                for (int j = 0; j < grid; j++) {
-                    int neighborsCount = neighborhood[i][j].length;
-                    System.out.printf("Person %d, %d -> ", i, j);
-                    for (int k = 0; k < neighborsCount; k++) {
-                       System.out.print(neighborhood[i][j][k] + " ");
-                    }
-                    System.out.println();
+            // join for selection
+            for (Thread t : threads) {
+                try {
+                    t.join();
+                } catch (Exception ex) {
+                    System.out.println("ERROR on thread join:\n\t" + ex.getMessage());
+                    System.exit(1);
                 }
             }
+
+            // Apply rules for each i,j with created threads
+            for (int idx = 0; idx < processors; idx++) {
+                // Calculate next displacement on matrix
+                int initI = value * idx;
+                int finalI = value * (idx + 1);
+
+                try {
+                    threads[idx] = new Thread(new Runnable() {
+                        public void run() {
+                            // apply rules threaded
+                            for (int i = initI; i <= finalI; i++) {
+                                for (int j = 0; j < grid; j++) {
+                                    applyRules(i, j, neighborhood[i][j]);
+                                }
+                            }
+                        }
+                    });
+
+                    threads[idx].start();
+                } catch (Exception ex) {
+                    System.err.println("ERROR on creating threads to apply rules:\n\t"+ex.getMessage());
+                    System.exit(1);
+                }
+
+            }
+
+            // Join threads for applyed rules
+            for (Thread t : threads) {
+                try {
+                    t.join();
+                } catch (Exception ex) {
+                    System.out.println("ERROR on thread join after applying rules:\n\t" + ex.getMessage());
+                    System.exit(1);
+                }
+            }
+
+            // @ end of each iteration prints the matrix
+            
+            System.out.println("Iteration: " + (currentIteration + 1) );
+            printMatrix();
+            System.out.println();
+
+            // Mult apply rules
+            if (Debug) {
+                for (int i = 0; i < grid; i++) {
+                    for (int j = 0; j < grid; j++) {
+                        int neighborsCount = neighborhood[i][j].length;
+                        System.out.printf("Person %d, %d -> ", i, j);
+                        for (int k = 0; k < neighborsCount; k++) {
+                            System.out.print(neighborhood[i][j][k] + " ");
+                        }
+                        System.out.println();
+                    }
+                }
+            }
+
         }
     }
 
+    /**
+     * Prints matrix m
+     */
+    private void printMatrix() {
+        for (int i = 0; i < grid; i++) {
+            for (int j = 0; j < grid; j++) {
+                System.out.print(m[i][j] + " ");
+            }
+            System.out.println();
+        }
+    }
 
 }
