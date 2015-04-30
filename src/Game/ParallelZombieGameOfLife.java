@@ -5,8 +5,14 @@
  */
 package Game;
 
+import java.util.Calendar;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+//import java.lang.System.
 
 /**
  *
@@ -14,14 +20,25 @@ import java.util.concurrent.Executors;
  */
 public class ParallelZombieGameOfLife {
 
-    private final int iterations;
-    private final int grid;
+    private int iterations;
+    private int grid;
     private int[][] m;
+    private int[][] original;
     private int customProcessorsNumber;
     private boolean useCustomProcessors;
-
+    private long timeSpent;
     private boolean Debug;
 
+    /**
+     * 
+     * @return time spent to compute
+     */
+    public long getTimeSpent() {
+        return timeSpent;
+    }
+
+    
+    
     /**
      * Get the value of Debug
      *
@@ -48,6 +65,7 @@ public class ParallelZombieGameOfLife {
      */
     public ParallelZombieGameOfLife(GameConfig gf, int customProcessorsNumber) {
         m = gf.getMatrix();
+        original = m.clone();
         iterations = gf.getIterations();
         grid = gf.getGridSize();
         this.customProcessorsNumber = customProcessorsNumber;
@@ -61,8 +79,10 @@ public class ParallelZombieGameOfLife {
      */
     public ParallelZombieGameOfLife(GameConfig gf) {
         m = gf.getMatrix();
+        original = m.clone();
         iterations = gf.getIterations();
         grid = gf.getGridSize();
+        useCustomProcessors = false;
     }
 
     /**
@@ -160,11 +180,12 @@ public class ParallelZombieGameOfLife {
     private void runIterationParallel(int initI, int finalI, int[][][] neighborhood) {
 
         // Prints thread name on debug mode
-        if (Debug) {
+        if (Debug) 
+        {
             System.out.println("ThreadID = " + Thread.currentThread().getName());
         }
 
-        for (int i = initI; i <= finalI; i++) {
+        for (int i = initI; i < finalI; i++) {
             for (int j = 0; j < grid; j++) {
 
                 //general case
@@ -265,11 +286,25 @@ public class ParallelZombieGameOfLife {
             } // j
         } //i
     }
+    
+    /**
+     * Prints the original matrix
+     */
+    public void printOriginalMatrix(){
+        for(int i = 0; i < grid; i++){
+            for(int j = 0; j < grid; j++){
+                System.out.println(original[i][j] + " ");
+            }
+            System.out.println();
+        }
+    }
+    
+    
 
     /**
      * Start game running on multithreaded.
      */
-    public void StartGame() {
+    public void StartGame(){
         // If got a custom number of simulating processors use it
         int processors = useCustomProcessors ? customProcessorsNumber : Runtime.getRuntime().availableProcessors();
 
@@ -279,34 +314,41 @@ public class ParallelZombieGameOfLife {
         }
 
         //Prints first matrix
-        System.out.println("Original matrix:");
-        printMatrix();
-        System.out.println();
+        //System.out.println("Original matrix:");
+        //printMatrix();
+        //System.out.println();
+        
+        // Get init time
+        long initTime = Calendar.getInstance().getTimeInMillis();
+        
+        // Split threads on lines of the matrix based on machine processors
+        int value = grid / processors;
+
+        // thread vector
+        Thread[] threads = new Thread[processors];
+
+        // Create a reference to this object to use inside the Runneble object
+        ParallelZombieGameOfLife pzgl = this;
 
         for (int currentIteration = 0; currentIteration < iterations; currentIteration++) {
 
             // Create neighbor hood
             int[][][] neighborhood = new int[grid][grid][8];
 
-            // Split threads on lines of the matrix based on machine processors
-            int value = grid / processors;
-
-            // thread vector
-            Thread[] threads = new Thread[processors];
-
-            // Create a reference to this object to use inside the Runneble object
-            ParallelZombieGameOfLife pzgl = this;
-
             // Create threads and pupulate the neiborhood with they
             for (int i = 0; i < processors; i++) {
                 // Calculate next displacement on matrix
                 int initI = value * i;
-                int finalI = value * (i + 1);
+                // For final that is not the last matrix index
+                int tmpFinalI = value * (i + 1);
+                int finalI = (i == (processors - 1) && tmpFinalI < grid) ? 
+                                tmpFinalI + (grid - tmpFinalI) : tmpFinalI;
+
 
                 // Try to create threads
                 try {
+                    
                     threads[i] = new Thread(new Runnable() {
-
                         public void run() {
                             pzgl.runIterationParallel(initI, finalI, neighborhood);
                         }
@@ -314,6 +356,7 @@ public class ParallelZombieGameOfLife {
 
                     threads[i].setName(initI + " to " + finalI);
                     threads[i].start();
+                    
                 } catch (Exception ex) {
                     System.err.println("ERROR on creating threads:\n\t" + ex.getMessage());
                     System.exit(1);
@@ -321,7 +364,8 @@ public class ParallelZombieGameOfLife {
 
             }
 
-            // join for selection
+            
+            // join for selection            
             for (Thread t : threads) {
                 try {
                     t.join();
@@ -330,34 +374,46 @@ public class ParallelZombieGameOfLife {
                     System.exit(1);
                 }
             }
-
+            
+            // Apply rules single thread
+            for (int i = 0; i < grid; i++) {
+                for (int j = 0; j < grid; j++) {
+                    applyRules(i, j, neighborhood[i][j]);
+                }
+            }
+            
+            /*
             // Apply rules for each i,j with created threads
             for (int idx = 0; idx < processors; idx++) {
                 // Calculate next displacement on matrix
                 int initI = value * idx;
-                int finalI = value * (idx + 1);
+                // For final that is not the last matrix index
+                int tmpFinalI = value * (idx + 1);
+                int finalI = (idx == (processors - 1) && tmpFinalI < grid) ? 
+                                tmpFinalI + (grid - tmpFinalI) : tmpFinalI;
 
                 try {
                     threads[idx] = new Thread(new Runnable() {
+                        
                         public void run() {
                             // apply rules threaded
-                            for (int i = initI; i <= finalI; i++) {
+                            for (int i = initI; i < finalI; i++) {
                                 for (int j = 0; j < grid; j++) {
                                     applyRules(i, j, neighborhood[i][j]);
                                 }
                             }
                         }
                     });
-
-                    threads[idx].start();
+                    
                 } catch (Exception ex) {
-                    System.err.println("ERROR on creating threads to apply rules:\n\t"+ex.getMessage());
+                    System.err.println("ERROR on creating threads to apply rules:\n\t" + ex.getMessage());
                     System.exit(1);
                 }
 
             }
 
-            // Join threads for applyed rules
+            
+            // Join threads for applyed rules            
             for (Thread t : threads) {
                 try {
                     t.join();
@@ -366,12 +422,15 @@ public class ParallelZombieGameOfLife {
                     System.exit(1);
                 }
             }
-
-            // @ end of each iteration prints the matrix
+            */
             
-            System.out.println("Iteration: " + (currentIteration + 1) );
-            printMatrix();
-            System.out.println();
+            // @ end of each iteration prints the matrix
+            if(Debug){
+                System.out.println("Iteration: " + (currentIteration + 1));
+                printResultantMatrix();
+                System.out.println();
+            }
+            
 
             // Mult apply rules
             if (Debug) {
@@ -388,12 +447,25 @@ public class ParallelZombieGameOfLife {
             }
 
         }
+        
+        // get end time of operation
+        long endTime = Calendar.getInstance().getTimeInMillis();
+        
+        // calculate spent time to perform the operations
+        this.timeSpent = endTime - initTime;
+        
+        
+        //Prints first matrix
+        //System.out.println("Final matrix:");
+        //printMatrix();
+        System.out.println();
+        
     }
 
     /**
      * Prints matrix m
      */
-    private void printMatrix() {
+    public void printResultantMatrix() {
         for (int i = 0; i < grid; i++) {
             for (int j = 0; j < grid; j++) {
                 System.out.print(m[i][j] + " ");

@@ -74,6 +74,12 @@ public class GameConfig {
             
             
             gridSize = Integer.parseInt(args[0]);
+            
+            if(gridSize < 2){
+                System.err.println("Minimum problem size is 2");
+                System.exit(1);
+            }
+            
             iterations = Integer.parseInt(args[1]);
             configFile = args[2];
             outFile = args[3];

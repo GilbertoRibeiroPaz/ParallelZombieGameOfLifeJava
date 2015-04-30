@@ -32,6 +32,8 @@ public class Main {
             GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config40.txt", grid);
             grid = GridGenerator.GenRandomPopulation(33);
             GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config33.txt", grid);
+            grid = GridGenerator.GenRandomPopulation(999);
+            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config999.txt", grid);
             // Custom
             grid = new int[][]{
                 {0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -48,12 +50,17 @@ public class Main {
             GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/ConfigCustom9.txt", grid);
         }
         else{
+            
             GameConfig gf = new GameConfig(args);
-
-            ParallelZombieGameOfLife pzgl = new ParallelZombieGameOfLife(gf);
-            if (args.length == 5 && args[4].equals("DEBUG") )
-                pzgl.setDebug(true);
+            ParallelZombieGameOfLife pzgl = new ParallelZombieGameOfLife(gf,1);
+            if (args.length == 5 && args[4].equals("DEBUG") )    
+                pzgl.setDebug(true);            
+            
             pzgl.StartGame();
+            
+            System.out.println("1º mult "+ pzgl.getTimeSpent());
+            
+            
         }
     }
     
