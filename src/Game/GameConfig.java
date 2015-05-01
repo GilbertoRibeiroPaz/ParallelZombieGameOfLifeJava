@@ -69,6 +69,7 @@ public class GameConfig {
         try{
             if (args.length < 4){
                 System.err.println("Not enough arguments.");
+                System.out.println("e.g.: 10 3 Config.txt outputresults.txt");
                 System.exit(1);
             }
             
@@ -151,6 +152,10 @@ public class GameConfig {
             System.exit(1);
         }       
         
+    }
+
+    public String getOutFile() {
+        return outFile;
     }
     
 

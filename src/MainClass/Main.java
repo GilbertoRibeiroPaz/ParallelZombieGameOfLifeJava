@@ -7,9 +7,8 @@
 package MainClass;
 
 import Game.GameConfig;
-import Game.GridGenerator;
 import Game.ParallelZombieGameOfLife;
-import java.lang.*;
+import Tests.AutoTester;
 /**
  *
  * @author gilberto
@@ -21,47 +20,35 @@ public class Main {
      */
     public static void main(String[] args) {
         
-        if ( args.length >= 1 && args[0].equals("CREATEGRID")){
-            int[][] grid = GridGenerator.GenRandomPopulation(100);
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config100.txt", grid);
-            grid = GridGenerator.GenRandomPopulation(9);
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config9.txt", grid);
-            grid = GridGenerator.GenRandomPopulation(10);
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config10.txt", grid);
-            grid = GridGenerator.GenRandomPopulation(40);
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config40.txt", grid);
-            grid = GridGenerator.GenRandomPopulation(33);
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config33.txt", grid);
-            grid = GridGenerator.GenRandomPopulation(999);
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/Config999.txt", grid);
-            // Custom
-            grid = new int[][]{
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 2, 2, 2, 2, 2, 0, 0},
-                {0, 0, 0, 1, 0, 1, 2, 0, 0}
-            };
+        if (args.length > 0 && args[0].equals("MAKETEST")){
             
-            GridGenerator.SavePopToEntryPattern("../res/TestsConfigs/ConfigCustom9.txt", grid);
-        }
-        else{
-            
+            // Get entries to make the automated test
+            if (args.length == 5){
+                System.out.println("Test mode");
+                String inputPath = args[1];
+                String outputPath = args[2];
+                int noOfTests = Integer.parseInt(args[3]);
+                int noOfThreads = Integer.parseInt(args[4]);
+                AutoTester at = new AutoTester(inputPath, outputPath, noOfTests , noOfThreads);
+                at.Maketests();
+            }
+            else {
+                printTestMan();
+            }
+        } else {
             GameConfig gf = new GameConfig(args);
-            ParallelZombieGameOfLife pzgl = new ParallelZombieGameOfLife(gf,1);
-            if (args.length == 5 && args[4].equals("DEBUG") )    
-                pzgl.setDebug(true);            
-            
+            ParallelZombieGameOfLife pzgl = new ParallelZombieGameOfLife(gf);
+            pzgl.setPrintIterations(true);
             pzgl.StartGame();
-            
-            System.out.println("1º mult "+ pzgl.getTimeSpent());
-            
-            
+            pzgl.saveResults();
         }
+        
+    }
+    
+    private static void printTestMan(){
+        String man = "Arguments minimun lenght is 5\n";
+        man += "Arguments: MAKETEST <Input path> <Output path> <Number of Tests> <Máximum number of threads to test>";
+        System.out.println(man);
     }
     
 }

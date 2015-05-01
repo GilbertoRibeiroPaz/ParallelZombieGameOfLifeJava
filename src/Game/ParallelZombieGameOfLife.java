@@ -5,14 +5,10 @@
  */
 package Game;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Calendar;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-//import java.lang.System.
 
 /**
  *
@@ -25,20 +21,18 @@ public class ParallelZombieGameOfLife {
     private int[][] m;
     private int[][] original;
     private int customProcessorsNumber;
-    private boolean useCustomProcessors;
     private long timeSpent;
     private boolean Debug;
+    private final String resultsFile;
 
     /**
-     * 
+     *
      * @return time spent to compute
      */
     public long getTimeSpent() {
         return timeSpent;
     }
 
-    
-    
     /**
      * Get the value of Debug
      *
@@ -65,11 +59,17 @@ public class ParallelZombieGameOfLife {
      */
     public ParallelZombieGameOfLife(GameConfig gf, int customProcessorsNumber) {
         m = gf.getMatrix();
-        original = m.clone();
+        // Manual clonning matrix
+        original = new int[gf.getGridSize()][gf.getGridSize()];
+        for(int i = 0; i < gf.getGridSize(); i++){
+            for(int j = 0; j < gf.getGridSize(); j++){
+                original[i][j] = m[i][j];                        
+            }    
+        }
         iterations = gf.getIterations();
         grid = gf.getGridSize();
-        this.customProcessorsNumber = customProcessorsNumber;
-        useCustomProcessors = true;
+        this.customProcessorsNumber = customProcessorsNumber;        
+        resultsFile = gf.getOutFile();
     }
 
     /**
@@ -79,10 +79,18 @@ public class ParallelZombieGameOfLife {
      */
     public ParallelZombieGameOfLife(GameConfig gf) {
         m = gf.getMatrix();
-        original = m.clone();
+        // Manual clonning matrix
+        original = new int[gf.getGridSize()][gf.getGridSize()];
+        for(int i = 0; i < gf.getGridSize(); i++){
+            for(int j = 0; j < gf.getGridSize(); j++){
+                original[i][j] = m[i][j];                        
+            }    
+        }
+        
         iterations = gf.getIterations();
         grid = gf.getGridSize();
-        useCustomProcessors = false;
+        customProcessorsNumber = Runtime.getRuntime().availableProcessors();
+        resultsFile = gf.getOutFile();
     }
 
     /**
@@ -180,8 +188,7 @@ public class ParallelZombieGameOfLife {
     private void runIterationParallel(int initI, int finalI, int[][][] neighborhood) {
 
         // Prints thread name on debug mode
-        if (Debug) 
-        {
+        if (Debug) {
             System.out.println("ThreadID = " + Thread.currentThread().getName());
         }
 
@@ -286,27 +293,30 @@ public class ParallelZombieGameOfLife {
             } // j
         } //i
     }
-    
+
     /**
      * Prints the original matrix
+     *
+     * @return matrix as a string
      */
-    public void printOriginalMatrix(){
-        for(int i = 0; i < grid; i++){
-            for(int j = 0; j < grid; j++){
-                System.out.println(original[i][j] + " ");
+    public String printOriginalMatrix() {
+        String origins = "";
+        for (int i = 0; i < grid; i++) {
+            for (int j = 0; j < grid; j++) {
+                origins += original[i][j] + " ";
             }
-            System.out.println();
+            origins += "\n";
         }
+
+        return origins;
     }
-    
-    
 
     /**
      * Start game running on multithreaded.
      */
-    public void StartGame(){
+    public void StartGame() {
         // If got a custom number of simulating processors use it
-        int processors = useCustomProcessors ? customProcessorsNumber : Runtime.getRuntime().availableProcessors();
+        int processors = customProcessorsNumber;
 
         //Prints number of processors on debug mode
         if (Debug) {
@@ -317,10 +327,9 @@ public class ParallelZombieGameOfLife {
         //System.out.println("Original matrix:");
         //printMatrix();
         //System.out.println();
-        
         // Get init time
         long initTime = Calendar.getInstance().getTimeInMillis();
-        
+
         // Split threads on lines of the matrix based on machine processors
         int value = grid / processors;
 
@@ -341,13 +350,12 @@ public class ParallelZombieGameOfLife {
                 int initI = value * i;
                 // For final that is not the last matrix index
                 int tmpFinalI = value * (i + 1);
-                int finalI = (i == (processors - 1) && tmpFinalI < grid) ? 
-                                tmpFinalI + (grid - tmpFinalI) : tmpFinalI;
-
+                int finalI = (i == (processors - 1) && tmpFinalI < grid)
+                        ? tmpFinalI + (grid - tmpFinalI) : tmpFinalI;
 
                 // Try to create threads
                 try {
-                    
+
                     threads[i] = new Thread(new Runnable() {
                         public void run() {
                             pzgl.runIterationParallel(initI, finalI, neighborhood);
@@ -356,7 +364,7 @@ public class ParallelZombieGameOfLife {
 
                     threads[i].setName(initI + " to " + finalI);
                     threads[i].start();
-                    
+
                 } catch (Exception ex) {
                     System.err.println("ERROR on creating threads:\n\t" + ex.getMessage());
                     System.exit(1);
@@ -364,7 +372,6 @@ public class ParallelZombieGameOfLife {
 
             }
 
-            
             // join for selection            
             for (Thread t : threads) {
                 try {
@@ -374,63 +381,61 @@ public class ParallelZombieGameOfLife {
                     System.exit(1);
                 }
             }
-            
+
             // Apply rules single thread
             for (int i = 0; i < grid; i++) {
                 for (int j = 0; j < grid; j++) {
                     applyRules(i, j, neighborhood[i][j]);
                 }
             }
-            
+
             /*
-            // Apply rules for each i,j with created threads
-            for (int idx = 0; idx < processors; idx++) {
-                // Calculate next displacement on matrix
-                int initI = value * idx;
-                // For final that is not the last matrix index
-                int tmpFinalI = value * (idx + 1);
-                int finalI = (idx == (processors - 1) && tmpFinalI < grid) ? 
-                                tmpFinalI + (grid - tmpFinalI) : tmpFinalI;
+             // Apply rules for each i,j with created threads
+             for (int idx = 0; idx < processors; idx++) {
+             // Calculate next displacement on matrix
+             int initI = value * idx;
+             // For final that is not the last matrix index
+             int tmpFinalI = value * (idx + 1);
+             int finalI = (idx == (processors - 1) && tmpFinalI < grid) ? 
+             tmpFinalI + (grid - tmpFinalI) : tmpFinalI;
 
-                try {
-                    threads[idx] = new Thread(new Runnable() {
+             try {
+             threads[idx] = new Thread(new Runnable() {
                         
-                        public void run() {
-                            // apply rules threaded
-                            for (int i = initI; i < finalI; i++) {
-                                for (int j = 0; j < grid; j++) {
-                                    applyRules(i, j, neighborhood[i][j]);
-                                }
-                            }
-                        }
-                    });
+             public void run() {
+             // apply rules threaded
+             for (int i = initI; i < finalI; i++) {
+             for (int j = 0; j < grid; j++) {
+             applyRules(i, j, neighborhood[i][j]);
+             }
+             }
+             }
+             });
                     
-                } catch (Exception ex) {
-                    System.err.println("ERROR on creating threads to apply rules:\n\t" + ex.getMessage());
-                    System.exit(1);
-                }
+             } catch (Exception ex) {
+             System.err.println("ERROR on creating threads to apply rules:\n\t" + ex.getMessage());
+             System.exit(1);
+             }
 
-            }
+             }
 
             
-            // Join threads for applyed rules            
-            for (Thread t : threads) {
-                try {
-                    t.join();
-                } catch (Exception ex) {
-                    System.out.println("ERROR on thread join after applying rules:\n\t" + ex.getMessage());
-                    System.exit(1);
-                }
-            }
-            */
-            
+             // Join threads for applyed rules            
+             for (Thread t : threads) {
+             try {
+             t.join();
+             } catch (Exception ex) {
+             System.out.println("ERROR on thread join after applying rules:\n\t" + ex.getMessage());
+             System.exit(1);
+             }
+             }
+             */
             // @ end of each iteration prints the matrix
-            if(Debug){
+            if (PrintIterations) {
                 System.out.println("Iteration: " + (currentIteration + 1));
                 printResultantMatrix();
                 System.out.println();
             }
-            
 
             // Mult apply rules
             if (Debug) {
@@ -447,31 +452,79 @@ public class ParallelZombieGameOfLife {
             }
 
         }
-        
+
         // get end time of operation
         long endTime = Calendar.getInstance().getTimeInMillis();
-        
+
         // calculate spent time to perform the operations
         this.timeSpent = endTime - initTime;
-        
-        
+
         //Prints first matrix
         //System.out.println("Final matrix:");
         //printMatrix();
         System.out.println();
-        
+
+    }
+    private boolean PrintIterations;
+
+    /**
+     * Get the value of PrintIterations
+     *
+     * @return the value of PrintIterations
+     */
+    public boolean isPrintIterations() {
+        return PrintIterations;
+    }
+
+    /**
+     * Set the value of PrintIterations
+     *
+     * @param PrintIterations new value of PrintIterations
+     */
+    public void setPrintIterations(boolean PrintIterations) {
+        this.PrintIterations = PrintIterations;
     }
 
     /**
      * Prints matrix m
+     *
+     * @return a matrix as string
      */
-    public void printResultantMatrix() {
+    public String printResultantMatrix() {
+        String res = "";
         for (int i = 0; i < grid; i++) {
             for (int j = 0; j < grid; j++) {
-                System.out.print(m[i][j] + " ");
+                res += m[i][j] + " ";
             }
-            System.out.println();
+            res += "\n";
         }
+
+        return res;
     }
 
+    /**
+     * Saves the results to GameConfig parsed file
+     */
+    public void saveResults() {
+        try (FileWriter fw = new FileWriter(resultsFile)) {
+            try (BufferedWriter bw = new BufferedWriter(fw)) {
+                // Write results and time
+                String toFile = "Original Matrix:\n";
+                toFile += this.printOriginalMatrix();
+                toFile += "\nResulting Matrix:\n";
+                toFile += this.printResultantMatrix();
+                toFile += "\nTime to process with " + customProcessorsNumber + " threads: ";
+                toFile += this.getTimeSpent() + " ms";
+
+                bw.write(toFile);
+
+            } catch (IOException ex) {
+                System.err.println("ERROR saving results:\n\t" + ex.getMessage());
+                System.exit(1);
+            }
+        } catch (IOException ex) {
+            System.err.println("ERROR saving results:\n\t" + ex.getMessage());
+            System.exit(1);
+        }
+    }
 }
