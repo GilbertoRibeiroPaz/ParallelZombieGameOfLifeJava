@@ -3,8 +3,9 @@ Versão aprimorada do jogo da vida com regras para vizinhos zumbis utilizando
 multiprogramação.
 
 
-Utilização do programa:
+[Utilização do programa]
     Há dois modos de execução do jogo:
+        
         - Execução do modulo de testes automatizados em que é possivel entrar
         com parâmetros de diretórios de origem dos arquivos de configuração e
         diretórios para imprimir seus resultados. O programa faz testes de 2 
